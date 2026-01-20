@@ -1,6 +1,8 @@
+import redis from "../redis.js";
 import { verifyToken } from "../utils/jwt.js";
 
-export function authMiddleware(req, res, next) {
+export async function authMiddleware(req, res, next) {
+    console.log("Auth middleware invoked");
     const authHeader = req.headers.authorization;
     if(!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ message: 'Unauthorized ,no token provided Plaese try to Login again !' });
@@ -9,12 +11,19 @@ export function authMiddleware(req, res, next) {
     const token=authHeader.split(' ')[1];
 
     try {
-        const decoded = verifyToken(token);
-        if(!decoded){
-            return res.status(401).json({message:'Unauthorized, Invalid token'});
+         // Step 1: check blacklist
+        const isBlacklisted = await redis.get(`bl:${token}`);
+        if (isBlacklisted) {
+
+        console.log("Token is blacklisted:", `bl:${token}`);
+
+        return res.status(401).json({ message: "Token expired, please login again" });
         }
-        //agar valid hai to req.user me decoded info rakh denge
-        req.user=decoded;
+        console.log("Token is not blacklisted, proceeding with verification.");
+        // Step 2: verify JWT
+        const decoded = verifyToken(token);
+
+        req.user = decoded; // { userId, email }
         next();
     }catch(err){
         console.error("Error in auth middleware:", err);

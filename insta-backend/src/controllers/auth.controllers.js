@@ -1,7 +1,8 @@
 import e from "express";
 import pool from "../db.js";
 import { comparePassword, hashPassword } from "../utils/password.js";
-import { generateToken } from "../utils/jwt.js";
+import { generateToken,verifyToken } from "../utils/jwt.js";
+import redis from "../redis.js";
 
 export async function signUp(req, res) {
     const {username,email,password} = req.body;
@@ -66,3 +67,25 @@ export async function login(req, res) {
         res.status(500).json({error:"Internal server error"});
     }
 }
+
+
+export const logout = async (req, res) => {
+  try {
+    console.log("Logout request received");
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(400).json({ message: "Token missing" });
+
+    const decoded = verifyToken(token);
+
+    const expirySeconds = decoded.exp - Math.floor(Date.now() / 1000);
+
+    if(expirySeconds > 0) {
+         await redis.set(`bl:${token}`, "1", "EX", expirySeconds);
+        console.log("Token blacklisted in Redis:", `bl:${token}`);
+    }
+    res.json({ message: "Logged out successfully" });
+  } catch (err) {
+    console.error("Error during logout:", err);
+    res.status(500).json({ message: "Logout failed" });
+  }
+};
