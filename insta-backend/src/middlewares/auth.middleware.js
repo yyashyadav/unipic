@@ -23,7 +23,7 @@ export async function authMiddleware(req, res, next) {
         // Step 2: verify JWT
         const decoded = verifyToken(token);
 
-        req.user = decoded; // { userId, email }
+        req.user = decoded; // { userId }
         next();
     }catch(err){
         console.error("Error in auth middleware:", err);

@@ -1,7 +1,7 @@
-import e from "express";
+
 import pool from "../db.js";
 import { comparePassword, hashPassword } from "../utils/password.js";
-import { generateToken,verifyToken } from "../utils/jwt.js";
+import { generateRefreshToken, generateToken,verifyToken } from "../utils/jwt.js";
 import redis from "../redis.js";
 
 export async function signUp(req, res) {
@@ -51,10 +51,15 @@ export async function login(req, res) {
         }
         //now if verified we genrate the token from it 
         //here we giver username email. and id as payload
-        const token =generateToken({id:user.id,username:user.username,email:user.email});
+        const token =generateToken({id:user.id});
+        const refreshToken=generateRefreshToken();
+
+        // store session in redis with refresh token as key and user id as value
+        await redis.set(`sess:${refreshToken}`, user.id, 'EX', 7 * 24 * 60 * 60); // 7 days expiry
 
         res.json({
             token,
+            refreshToken,
             user:{
                 email:user.email,
                 id:user.id,
@@ -73,6 +78,7 @@ export const logout = async (req, res) => {
   try {
     console.log("Logout request received");
     const token = req.headers.authorization?.split(" ")[1];
+    const {refreshToken} = req.body;
     if (!token) return res.status(400).json({ message: "Token missing" });
 
     const decoded = verifyToken(token);
@@ -83,9 +89,44 @@ export const logout = async (req, res) => {
          await redis.set(`bl:${token}`, "1", "EX", expirySeconds);
         console.log("Token blacklisted in Redis:", `bl:${token}`);
     }
+    if (refreshToken) {
+    await redis.del(`sess:${refreshToken}`);
+    }
     res.json({ message: "Logged out successfully" });
+
   } catch (err) {
     console.error("Error during logout:", err);
     res.status(500).json({ message: "Logout failed" });
   }
+};
+
+//this is the rrefresh the token controller
+
+
+export const refresh =async(req,res)=>{
+    const {refreshToken}=req.body;
+    if(!refreshToken){
+        return res.status(400).json({message:"Refresh token is required"});
+    }
+    //because useriD is the value of see:$refreshToken
+    const userId=await redis.get(`sess:${refreshToken}`);
+
+    if(!userId){
+            return res.status(401).json({ message: "Invalid refresh token" });
+    }
+    //this sis called the rotation of refresh token
+    await redis.del(`sess:${refreshToken}`);
+
+
+    // now we genrate the new acess token and refresh token
+    const newRefreshToken=generateRefreshToken();
+    await redis.set(`sess:${newRefreshToken}`,userId,'EX',7*24*60*60);
+
+    const newAccessToken=generateToken({id:userId});
+    
+    res.json({ 
+        token:newAccessToken,
+        refreshToken:newRefreshToken
+    });
+
 };
