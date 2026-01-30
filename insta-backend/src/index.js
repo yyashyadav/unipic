@@ -6,6 +6,9 @@ import cors from 'cors';
 import pool from './db.js';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
+import postRoutes from './routes/post.routes.js';
+import followRoutes from './routes/follow.routes.js';
+import feedRoutes from './routes/feed.routes.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -17,7 +20,9 @@ app.use(express.json());
 // these are routes
 app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
-
+app.use('/posts', postRoutes);
+app.use('/users', followRoutes);
+app.use('/feed', feedRoutes);
 
 
 console.log("DATABASE_URL:", process.env.DATABASE_URL);

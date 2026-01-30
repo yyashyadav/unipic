@@ -21,9 +21,11 @@ export async function authMiddleware(req, res, next) {
         }
         console.log("Token is not blacklisted, proceeding with verification.");
         // Step 2: verify JWT
-        const decoded = verifyToken(token);
-
-        req.user = decoded; // { userId }
+       const decoded = verifyToken(token);
+        if (!decoded) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+        }
+        req.user = decoded;
         next();
     }catch(err){
         console.error("Error in auth middleware:", err);
