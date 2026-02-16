@@ -14,7 +14,13 @@ const PORT = process.env.PORT || 3001;
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000",   // frontend
+    credentials: true                 // allow cookies
+  })
+);
+
 app.use(express.json());
 
 // these are routes

@@ -3,6 +3,7 @@ import pool from "../db.js";
 import { comparePassword, hashPassword } from "../utils/password.js";
 import { generateRefreshToken, generateToken,verifyToken } from "../utils/jwt.js";
 import redis from "../redis.js";
+import e from "express";
 
 export async function signUp(req, res) {
     const {username,email,password} = req.body;
@@ -130,3 +131,24 @@ export const refresh =async(req,res)=>{
     });
 
 };
+
+export async function me(req, res) {
+    try{
+        const userId = req.user.id;
+        const result = await pool.query(
+        "SELECT id, username, email FROM users WHERE id = $1",
+        [userId]
+        );
+
+        if (result.rows.length === 0) {
+        return res.status(401).json({ message: "User not found" });
+        }
+
+        res.json({ user: result.rows[0] });
+    }catch(err){
+        console.error(err);
+        res.status(401).json({ message: "Not authenticated" });
+    }
+    
+
+}
